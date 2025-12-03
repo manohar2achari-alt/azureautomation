@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Azure Client Secret Expiration Automation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f4f7fb;
+        color: #1a1a1a;
+    }
+    header {
+        background: #0A4CFF;
+        padding: 20px;
+        text-align: center;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+    nav a {
+        margin: 0 15px;
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 15px;
+    }
+    section {
+        max-width: 900px;
+        margin: auto;
+        padding: 40px 20px;
+    }
+    h2 {
+        color: #0A4CFF;
+        margin-bottom: 10px;
+    }
+    .card {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0px 3px 10px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    code {
+        background: #eee;
+        padding: 6px 10px;
+        display: block;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        margin-top: 10px;
+        font-size: 14px;
+    }
+    footer {
+        background: #0A4CFF;
+        text-align: center;
+        padding: 15px;
+        color: white;
+        margin-top: 40px;
+    }
+    html {
+        scroll-behavior: smooth;
+    }
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Azure Client Secret Expiration Automation</h1>
+    <nav>
+        <a href="#overview">Overview</a>
+        <a href="#how">How It Works</a>
+        <a href="#steps">Steps</a>
+        <a href="#scripts">Scripts</a>
+        <a href="#contact">Contact</a>
+    </nav>
+</header>
+
+<section id="overview">
+    <div class="card">
+        <h2>Overview</h2>
+        <p>Azure App Registration client secrets expire every 1–24 months. When secrets expire:</p>
+        <ul>
+            <li>Applications fail authentication</li>
+            <li>Critical services go down</li>
+            <li>Admins scramble to rotate secrets</li>
+        </ul>
+        <p>This website gives you a simple and reliable way to AUTOMATE client secret renewal using Azure Automation + Managed Identity + Microsoft Graph API.</p>
+    </div>
+</section>
+
+<section id="how">
+    <div class="card">
+        <h2>How It Works</h2>
+        <p>The automation flow works like this:</p>
+        <ul>
+            <li>Azure Automation runbook runs daily</li>
+            <li>Runbook uses a Managed Identity with Graph API permissions</li>
+            <li>It scans all App Registrations for secrets expiring in the next X days</li>
+            <li>If expiration is near → it auto-renews the secret</li>
+            <li>Sends notifications through email/Teams</li>
+        </ul>
+
+        <pre><code>
+[Automation Account MI] ---reads---> [App Registrations]
+                                \
+                                 ---> renews secrets
+                                  \
+                                   ---> sends email alert
+        </code></pre>
+    </div>
+</section>
+
+<section id="steps">
+    <div class="card">
+        <h2>Step-by-Step Guide</h2>
+
+        <h3>1. Create Azure Automation Account</h3>
+        <p>Create a PowerShell 7.2 automation account with a System-Assigned Managed Identity.</p>
+
+        <h3>2. Assign Managed Identity Permissions</h3>
+        <p>Assign these Microsoft Graph API App roles:</p>
+        <ul>
+            <li><strong>Application.ReadWrite.All</strong></li>
+            <li><strong>Directory.Read.All</strong></li>
+        </ul>
+
+        <h3>3. List Expiring Secrets</h3>
+        <p>Runbook calls Graph API to fetch all App credential expirations.</p>
+
+        <h3>4. Auto-Renew Secrets</h3>
+        <p>If a secret is expiring in next X days, script creates a new one.</p>
+
+        <h3>5. Send Alerts</h3>
+        <p>Email/SMS/Teams notification using Logic App or SendGrid.</p>
+    </div>
+</section>
+
+<section id="scripts">
+    <div class="card">
+        <h2>Scripts</h2>
+
+        <h3>PowerShell Runbook – Detect Expiring Secrets</h3>
+        <code>
+$today = Get-Date
+$threshold = $today.AddDays(30)
+
+$appRegs = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/applications?$select=id,displayName,passwordCredentials"
+
+foreach ($app in $appRegs.value) {
+    foreach ($cred in $app.passwordCredentials) {
+        if ([datetime]$cred.endDateTime -lt $threshold) {
+            Write-Output "Expiring: $($app.displayName) - $($cred.endDateTime)"
+        }
+    }
+}
+        </code>
+
+        <h3>PowerShell Runbook – Auto Renew Secret</h3>
+        <code>
+$newSecret = @{
+    passwordCredential = @{
+        displayName = "AutoRenewed"
+    }
+}
+
+Invoke-MgGraphRequest `
+    -Method POST `
+    -Uri "https://graph.microsoft.com/v1.0/applications/$($app.id)/addPassword" `
+    -Body ($newSecret | ConvertTo-Json)
+        </code>
+
+        <h3>Kusto Query – Secret Monitoring</h3>
+        <code>
+AppServiceAuthenticationAudit
+| where SecretExpiryDate &lt; now() + 30d
+| project AppName, SecretExpiryDate
+        </code>
+    </div>
+</section>
+
+<section id="contact">
+    <div class="card">
+        <h2>Contact</h2>
+        <p>For feedback or contributions, reach out:</p>
+        <p><strong>Email:</strong> admin@example.com</p>
+    </div>
+</section>
+
+<footer>
+    © 2025 Azure Automation — Client Secret Management
+</footer>
+
+</body>
+</html>
